@@ -1,0 +1,22 @@
+{
+  "name": "nexusforge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Production-grade AI-powered collaborative software engineering platform",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @nexusforge/web",
+    "dev:api": "npm run start:dev --workspace @nexusforge/api",
+    "dev:web": "npm run dev --workspace @nexusforge/web",
+    "build": "npm run build --workspace @nexusforge/api && npm run build --workspace @nexusforge/web",
+    "test": "npm run test --workspace @nexusforge/api",
+    "lint": "npm run lint --workspace @nexusforge/api && npm run lint --workspace @nexusforge/web"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rakshann05/NexusForge.git"
+  },
+  "license": "MIT"
+}
