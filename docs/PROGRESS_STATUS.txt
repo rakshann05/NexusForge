@@ -1,0 +1,45 @@
+NEXUSFORGE PROJECT STATUS
+=========================
+Version: 0.2.0 (Collaboration Core)
+Last updated: 2026-08-03
+
+DONE
+- Established npm workspaces for Next.js web, NestJS API, and shared contracts.
+- Added local PostgreSQL Docker stack, environment template, Prisma data schema, CI workflow, and license.
+- Created the complete product and architecture documentation set.
+- Built a responsive dashboard shell and login presentation.
+- Implemented API health endpoint plus registration/login service boundaries with bcrypt and JWT issuance.
+- Added protected organization, project, task, and document API modules with DTO validation and tenant membership checks.
+- Added audit event persistence, Helmet HTTP headers, strict validation behavior, and a reusable JWT guard.
+
+IN PROGRESS
+- Adding refresh-token rotation, role policies, realtime chat/notifications, and API integration tests.
+
+CURRENT MODULE
+- Finalized and validated Collaboration Core. No implementation work is active pending the next approved milestone.
+
+NEXT
+- Role policies, refresh-token rotation, and member invitations.
+- Interactive persisted Kanban board and document editing UI.
+- Documents/wiki, Socket.IO collaboration, analytics, optional AI adapters, and E2E tests.
+
+MAJOR DECISIONS
+- npm workspaces keep the initial monorepo simple and free to run.
+- PostgreSQL + Prisma is the source of truth; SQLite is not used as a production substitute.
+- AI is opt-in and provider-agnostic; AI_PROVIDER=none is a supported default.
+- Local filesystem storage will sit behind an adapter before object storage is introduced.
+
+DEPENDENCIES / BLOCKERS
+- No paid service is required. Node 20+, npm, Docker, and PostgreSQL are needed locally.
+- Full local validation is passing: Prisma client generation, TypeScript checks, production builds, tests, and Docker Compose parsing.
+- Current auth response exposes a refresh token for API integration; secure httpOnly cookie transport and rotation are the next authentication hardening work.
+
+TIMELINE
+- 2026-08-03: v0.1.0 foundation scaffold and documentation completed.
+- 2026-08-03: v0.2.0 protected collaboration-core APIs and audit foundation completed.
+
+REMAINING WORK
+- Enforce organization role policies and invitations; add refresh-token rotation and session revocation endpoints.
+- Deliver persistent board/document UI, realtime chat and notifications, analytics, optional AI adapters, integration/E2E coverage, and production deployment assets.
+- v0.3.0: realtime, analytics, and optional AI.
+- v1.0.0: production hardening and deployment release.

@@ -1,0 +1,20 @@
+{
+  "name": "nexusforge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Collaborative engineering workspace",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm run dev -w @nexusforge/web\" \"npm run start:dev -w @nexusforge/api\"",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prisma": "^6.3.1"
+  }
+}
