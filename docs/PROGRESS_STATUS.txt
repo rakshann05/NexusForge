@@ -32,6 +32,7 @@ MAJOR DECISIONS
 DEPENDENCIES / BLOCKERS
 - No paid service is required. Node 20+, npm, Docker, and PostgreSQL are needed locally.
 - Full local validation is passing: Prisma client generation, TypeScript checks, production builds, tests, and Docker Compose parsing.
+- CI uses Node 22 and `npm ci` with lifecycle scripts enabled so native dependencies, including bcrypt, install correctly before tests run.
 - Current auth response exposes a refresh token for API integration; secure httpOnly cookie transport and rotation are the next authentication hardening work.
 
 TIMELINE

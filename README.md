@@ -14,7 +14,7 @@ NexusForge is a self-hostable collaborative workspace for software teams. It bri
 
 ## Quick start
 
-Prerequisites: Node.js 20+, npm 10+, and Docker (recommended for PostgreSQL).
+Prerequisites: Node.js 22+, npm 10+, and Docker (recommended for PostgreSQL).
 
 ```bash
 cp .env.example .env
