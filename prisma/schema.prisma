@@ -35,30 +35,96 @@ enum TaskPriority {
   URGENT
 }
 
+enum SystemRoleKey {
+  ADMIN
+  OWNER
+  MEMBER
+  GUEST
+}
+
 model User {
-  id             String             @id @default(cuid())
-  email          String             @unique
+  id             String               @id @default(cuid())
+  email          String               @unique
+  username       String               @unique
   displayName    String
   passwordHash   String
   avatarUrl      String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  bio            String?              @db.VarChar(500)
+  timezone       String               @default("UTC")
+  language       String               @default("en")
+  theme          String               @default("system")
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
   memberships    OrganizationMember[]
   projectMembers ProjectMember[]
-  assignedTasks  Task[]             @relation("TaskAssignee")
-  createdTasks   Task[]             @relation("TaskCreator")
+  assignedTasks  Task[]               @relation("TaskAssignee")
+  createdTasks   Task[]               @relation("TaskCreator")
   refreshTokens  RefreshToken[]
+  sessions       Session[]
+  roles          UserRole[]
   auditEvents    AuditLog[]
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
   expiresAt DateTime
   revokedAt DateTime?
   userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String    @unique
+  session   Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+}
+
+model Session {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken RefreshToken?
+  userAgent    String?
+  ipAddress    String?
+  deviceName   String?
+  createdAt    DateTime      @default(now())
+  lastActiveAt DateTime      @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+
+  @@index([userId, revokedAt])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  key         SystemRoleKey    @unique
+  description String
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId    String
+  roleId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
 }
 
 model Organization {
@@ -81,6 +147,7 @@ model OrganizationMember {
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime         @default(now())
+
   @@unique([userId, organizationId])
   @@index([organizationId])
 }
@@ -96,6 +163,7 @@ model Project {
   tasks          Task[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+
   @@unique([organizationId, key])
 }
 
@@ -106,6 +174,7 @@ model ProjectMember {
   projectId String
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@unique([userId, projectId])
 }
 
@@ -124,6 +193,7 @@ model Task {
   creator     User         @relation("TaskCreator", fields: [creatorId], references: [id])
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+
   @@index([projectId, status, position])
 }
 
@@ -135,6 +205,7 @@ model Document {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+
   @@index([organizationId])
 }
 
@@ -149,6 +220,7 @@ model AuditLog {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   createdAt      DateTime      @default(now())
+
   @@index([organizationId, createdAt])
   @@index([actorId, createdAt])
 }

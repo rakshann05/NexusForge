@@ -2,14 +2,14 @@
 
 NexusForge is a self-hostable collaborative workspace for software teams. It brings projects, Kanban work, team knowledge, chat, and optional AI assistance into a single product without making a hosted AI service a runtime requirement.
 
-> **Status:** Collaboration Core (v0.2.0). NexusForge has a validated production build, secure API foundation, tenant-scoped collaboration resources, audit logging, and a responsive workspace interface. See [docs/PROGRESS_STATUS.txt](docs/PROGRESS_STATUS.txt) for current scope.
+> **Status:** Identity Management (v0.3.0). NexusForge now includes a production-oriented authentication and identity module with session tracking, refresh-token rotation, secure cookie delivery, profile preferences, and role data. See [docs/PROGRESS_STATUS.txt](docs/PROGRESS_STATUS.txt) for current scope.
 
 ## Stack
 
 - **Web:** Next.js, React, Tailwind CSS
 - **API:** NestJS, REST, JWT protection, audit logging, rate limiting
 - **Data:** PostgreSQL and Prisma
-- **Security:** JWT access/refresh tokens, bcrypt password hashes, role-based authorization
+- **Security:** JWT access/refresh tokens, session revocation, bcrypt password hashes, RBAC primitives, Helmet, and rate limiting
 - **AI:** optional, provider-agnostic service interface; disabled safely by default
 
 ## Quick start
@@ -25,7 +25,7 @@ npm run db:migrate -- --name init
 npm run dev
 ```
 
-Open `http://localhost:3000` for the web app and `http://localhost:4000/api/health` for the API health check. The protected API currently covers organizations, projects, tasks, and documents; use a token returned by `/api/auth/register` or `/api/auth/login` as a bearer token.
+Open `http://localhost:3000` for the web app and `http://localhost:4000/api/health` for the API health check. Authentication supports email or username login; refresh tokens are delivered in a secure HTTP-only cookie, while the API response contains the short-lived access token.
 
 ## Commands
 

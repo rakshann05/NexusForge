@@ -1,6 +1,6 @@
 NEXUSFORGE PROJECT STATUS
 =========================
-Version: 0.2.0 (Collaboration Core)
+Version: 0.3.0 (Authentication & Identity)
 Last updated: 2026-08-03
 
 DONE
@@ -11,15 +11,18 @@ DONE
 - Implemented API health endpoint plus registration/login service boundaries with bcrypt and JWT issuance.
 - Added protected organization, project, task, and document API modules with DTO validation and tenant membership checks.
 - Added audit event persistence, Helmet HTTP headers, strict validation behavior, and a reusable JWT guard.
+- Added username registration and login, strong password and duplicate-identity validation, bcrypt credential storage, and role assignment.
+- Added rotating refresh tokens, session tracking/revocation, logout-all, HTTP-only refresh cookies, profile preferences, and identity audit events.
+- Added responsive registration, password-recovery, profile, preferences, and security/session-management screens.
 
 IN PROGRESS
-- Adding refresh-token rotation, role policies, realtime chat/notifications, and API integration tests.
+- Authentication & Identity is complete and validated. No implementation work is active pending the next approved milestone.
 
 CURRENT MODULE
-- Finalized and validated Collaboration Core. No implementation work is active pending the next approved milestone.
+- Authentication & Identity Management (v0.3.0), finalized and validated.
 
 NEXT
-- Role policies, refresh-token rotation, and member invitations.
+- Enforce permission policies for administrative resource endpoints and add password-reset email delivery.
 - Interactive persisted Kanban board and document editing UI.
 - Documents/wiki, Socket.IO collaboration, analytics, optional AI adapters, and E2E tests.
 
@@ -33,14 +36,15 @@ DEPENDENCIES / BLOCKERS
 - No paid service is required. Node 22+, npm, Docker, and PostgreSQL are needed locally.
 - Full local validation is passing: Prisma client generation, TypeScript checks, production builds, tests, and Docker Compose parsing.
 - CI uses Node 22 and `npm ci` with lifecycle scripts enabled so native dependencies, including bcrypt, install correctly before tests run.
-- Current auth response exposes a refresh token for API integration; secure httpOnly cookie transport and rotation are the next authentication hardening work.
+- Password-reset delivery is intentionally UI-only until a configurable mail provider is added; core authentication does not require a paid provider.
 
 TIMELINE
 - 2026-08-03: v0.1.0 foundation scaffold and documentation completed.
 - 2026-08-03: v0.2.0 protected collaboration-core APIs and audit foundation completed.
+- 2026-08-03: v0.3.0 authentication and identity management completed.
 
 REMAINING WORK
-- Enforce organization role policies and invitations; add refresh-token rotation and session revocation endpoints.
+- Enforce organization permission policies and member invitations; add mail-backed password reset.
 - Deliver persistent board/document UI, realtime chat and notifications, analytics, optional AI adapters, integration/E2E coverage, and production deployment assets.
 - v0.3.0: realtime, analytics, and optional AI.
 - v1.0.0: production hardening and deployment release.

@@ -1,9 +1,12 @@
-import { CanActivate, createParamDecorator, ExecutionContext, Injectable, SetMetadata, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, createParamDecorator, ExecutionContext, ForbiddenException, Injectable, SetMetadata, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Reflector } from '@nestjs/core';
+import { PrismaService } from './prisma.module';
 
-export interface AuthenticatedUser { sub: string; email: string; displayName: string; }
+export interface AuthenticatedUser { sub: string; email: string; username: string; displayName: string; sid?: string; roles: string[]; }
 export const CurrentUser = createParamDecorator((_data: unknown, context: ExecutionContext): AuthenticatedUser => context.switchToHttp().getRequest().user);
 export const Roles = (...roles: string[]) => SetMetadata('roles', roles);
+export const Permissions = (...permissions: string[]) => SetMetadata('permissions', permissions);
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -16,5 +19,32 @@ export class JwtAuthGuard implements CanActivate {
       request.user = await this.jwt.verifyAsync<AuthenticatedUser>(token, { secret: process.env.JWT_ACCESS_SECRET });
       return true;
     } catch { throw new UnauthorizedException('Invalid or expired access token'); }
+  }
+}
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+  canActivate(context: ExecutionContext) {
+    const roles = this.reflector.getAllAndOverride<string[]>('roles', [context.getHandler(), context.getClass()]);
+    if (!roles?.length) return true;
+    const user = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>().user;
+    if (!user?.roles.some((role) => roles.includes(role))) throw new ForbiddenException('Insufficient role');
+    return true;
+  }
+}
+
+@Injectable()
+export class PermissionsGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector, private readonly prisma: PrismaService) {}
+  async canActivate(context: ExecutionContext) {
+    const permissions = this.reflector.getAllAndOverride<string[]>('permissions', [context.getHandler(), context.getClass()]);
+    if (!permissions?.length) return true;
+    const user = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>().user;
+    if (!user) throw new ForbiddenException('Insufficient permission');
+    const roles = await this.prisma.userRole.findMany({ where: { userId: user.sub }, include: { role: { include: { permissions: { include: { permission: true } } } } } });
+    const granted = new Set(roles.flatMap(({ role }) => role.permissions.map(({ permission }) => permission.key)));
+    if (!permissions.every((permission) => granted.has(permission))) throw new ForbiddenException('Insufficient permission');
+    return true;
   }
 }
