@@ -21,10 +21,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard) @Get('me') me(@CurrentUser() user: AuthenticatedUser) { return this.auth.profile(user.sub); }
   @UseGuards(JwtAuthGuard) @Patch('me') update(@CurrentUser() user: AuthenticatedUser, @Body() input: UpdateProfileDto) { return this.auth.updateProfile(user.sub, input); }
   @UseGuards(JwtAuthGuard) @Get('sessions') sessions(@CurrentUser() user: AuthenticatedUser) { return this.auth.sessions(user); }
-  @UseGuards(JwtAuthGuard) @Delete('sessions/:sessionId') @HttpCode(204) revokeSession(@CurrentUser() user: AuthenticatedUser, @Param('sessionId') sessionId: string) { return this.auth.revokeSession(user.sub, sessionId); }
+  @UseGuards(JwtAuthGuard) @Delete('sessions/:sessionId') @HttpCode(204) async revokeSession(@CurrentUser() user: AuthenticatedUser, @Param('sessionId') sessionId: string, @Res({ passthrough: true }) response: Response) { await this.auth.revokeSession(user.sub, sessionId); if (sessionId === user.sid) response.clearCookie('nexusforge_refresh', this.cookieOptions()); }
   @UseGuards(JwtAuthGuard) @Get('roles') roles(@CurrentUser() user: AuthenticatedUser) { return this.auth.roles(user.sub); }
   private respond(response: Response, result: Awaited<ReturnType<AuthService['login']>>) { response.cookie('nexusforge_refresh', result.refreshToken, this.cookieOptions()); const { refreshToken, ...body } = result; return body; }
   private context(request: Request) { return { ipAddress: request.ip, userAgent: request.get('user-agent') }; }
   private cookie(request: Request, key: string) { return request.headers.cookie?.split(';').map((item: string) => item.trim().split('=')).find((parts: string[]) => parts[0] === key)?.slice(1).join('='); }
-  private cookieOptions() { return { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const, path: '/api/auth' }; }
+  private cookieOptions() { return { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const, path: '/api/auth', maxAge: 7 * 24 * 60 * 60 * 1000 }; }
 }

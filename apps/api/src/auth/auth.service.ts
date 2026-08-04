@@ -23,7 +23,9 @@ export class AuthService {
     if (duplicate?.email === email) throw new ConflictException('Email is already registered');
     if (duplicate?.username === username) throw new ConflictException('Username is already registered');
     const memberRole = await this.prisma.role.upsert({ where: { key: SystemRoleKey.MEMBER }, update: {}, create: { key: SystemRoleKey.MEMBER, description: 'Standard workspace member' } });
-    const user = await this.prisma.user.create({ data: { email, username, displayName: input.displayName.trim(), passwordHash: await bcrypt.hash(input.password, 12), roles: { create: { roleId: memberRole.id } } } });
+    let user;
+    try { user = await this.prisma.user.create({ data: { email, username, displayName: input.displayName.trim(), passwordHash: await bcrypt.hash(input.password, 12), roles: { create: { roleId: memberRole.id } } } }); }
+    catch (error: unknown) { if ((error as { code?: string }).code === 'P2002') throw new ConflictException('Email or username is already registered'); throw error; }
     await this.audit.record({ actorId: user.id, action: 'identity.registered', entityType: 'User', entityId: user.id, metadata: { username } });
     return this.startSession(user.id, context);
   }
@@ -32,7 +34,9 @@ export class AuthService {
     const normalized = identifier.trim().toLowerCase();
     const user = await this.prisma.user.findFirst({ where: { OR: [{ email: normalized }, { username: normalized }] } });
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) throw new UnauthorizedException('Invalid credentials');
-    return this.startSession(user.id, context);
+    const session = await this.startSession(user.id, context);
+    await this.audit.record({ actorId: user.id, action: 'identity.logged_in', entityType: 'Session', entityId: session.sessionId });
+    return session;
   }
 
   async refresh(refreshToken: string, context: SessionContext) {
@@ -42,7 +46,9 @@ export class AuthService {
     const stored = await this.prisma.refreshToken.findUnique({ where: { sessionId: payload.sid }, include: { session: { include: { user: { include: { roles: { include: { role: true } } } } } } } });
     if (!stored || stored.revokedAt || stored.expiresAt < new Date() || stored.session.revokedAt || !(await bcrypt.compare(refreshToken, stored.tokenHash))) throw new UnauthorizedException('Invalid or revoked refresh token');
     await this.prisma.refreshToken.update({ where: { id: stored.id }, data: { revokedAt: new Date() } });
-    return this.issueTokens(stored.session.user, stored.session, context);
+    const result = await this.issueTokens(stored.session.user, stored.session, context);
+    await this.audit.record({ actorId: stored.userId, action: 'identity.refresh_rotated', entityType: 'Session', entityId: stored.sessionId });
+    return result;
   }
 
   async logout(user: AuthenticatedUser) { await this.revokeSession(user.sub, user.sid); }

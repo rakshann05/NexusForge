@@ -14,9 +14,10 @@ DONE
 - Added username registration and login, strong password and duplicate-identity validation, bcrypt credential storage, and role assignment.
 - Added rotating refresh tokens, session tracking/revocation, logout-all, HTTP-only refresh cookies, profile preferences, and identity audit events.
 - Added responsive registration, password-recovery, profile, preferences, and security/session-management screens.
+- Completed final authentication security review: revoked sessions invalidate access tokens immediately, current database roles are checked by RBAC guards, and login/refresh/session events are audited.
 
 IN PROGRESS
-- Authentication & Identity is complete and validated. No implementation work is active pending the next approved milestone.
+- Authentication & Identity is complete, security-reviewed, and validated. No implementation work is active pending the next approved milestone.
 
 CURRENT MODULE
 - Authentication & Identity Management (v0.3.0), finalized and validated.

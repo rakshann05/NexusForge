@@ -10,13 +10,17 @@ export const Permissions = (...permissions: string[]) => SetMetadata('permission
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly jwt: JwtService) {}
+  constructor(private readonly jwt: JwtService, private readonly prisma: PrismaService) {}
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<{ headers: { authorization?: string }; user?: AuthenticatedUser }>();
     const token = request.headers.authorization?.replace(/^Bearer\s+/i, '');
     if (!token) throw new UnauthorizedException('A bearer token is required');
     try {
-      request.user = await this.jwt.verifyAsync<AuthenticatedUser>(token, { secret: process.env.JWT_ACCESS_SECRET });
+      const user = await this.jwt.verifyAsync<AuthenticatedUser>(token, { secret: process.env.JWT_ACCESS_SECRET });
+      if (!user.sid) throw new UnauthorizedException('Invalid access token');
+      const session = await this.prisma.session.findUnique({ where: { id: user.sid }, select: { userId: true, revokedAt: true, expiresAt: true } });
+      if (!session || session.userId !== user.sub || session.revokedAt || session.expiresAt < new Date()) throw new UnauthorizedException('Session is no longer active');
+      request.user = user;
       return true;
     } catch { throw new UnauthorizedException('Invalid or expired access token'); }
   }
@@ -24,12 +28,14 @@ export class JwtAuthGuard implements CanActivate {
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
-  canActivate(context: ExecutionContext) {
+  constructor(private readonly reflector: Reflector, private readonly prisma: PrismaService) {}
+  async canActivate(context: ExecutionContext) {
     const roles = this.reflector.getAllAndOverride<string[]>('roles', [context.getHandler(), context.getClass()]);
     if (!roles?.length) return true;
     const user = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>().user;
-    if (!user?.roles.some((role) => roles.includes(role))) throw new ForbiddenException('Insufficient role');
+    if (!user) throw new ForbiddenException('Insufficient role');
+    const assignedRoles = await this.prisma.userRole.findMany({ where: { userId: user.sub }, include: { role: { select: { key: true } } } });
+    if (!assignedRoles.some(({ role }) => roles.includes(role.key))) throw new ForbiddenException('Insufficient role');
     return true;
   }
 }
