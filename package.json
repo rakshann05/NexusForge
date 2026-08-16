@@ -11,10 +11,22 @@
     "test": "npm run test --workspaces",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
     "db:studio": "prisma studio"
   },
+  "prisma": {
+    "seed": "ts-node --transpile-only --compiler-options {\"module\":\"CommonJS\",\"target\":\"ES2020\",\"esModuleInterop\":true,\"skipLibCheck\":true} prisma/seed.ts"
+  },
   "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.5",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
     "concurrently": "^9.1.2",
-    "prisma": "^6.3.1"
+    "eslint": "^9.18.0",
+    "prisma": "^6.3.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
   }
 }

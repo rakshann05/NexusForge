@@ -5,12 +5,43 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexusforge
+          POSTGRES_USER: nexusforge
+          POSTGRES_PASSWORD: nexusforge_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexusforge -d nexusforge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Non-secret, throwaway values scoped to CI only. The database is a
+      # disposable service container and the JWT values never protect real data.
+      NODE_ENV: test
+      DATABASE_URL: postgresql://nexusforge:nexusforge_ci_password@localhost:5432/nexusforge?schema=public
+      JWT_ACCESS_SECRET: ci-access-secret-not-used-in-production-0001
+      JWT_REFRESH_SECRET: ci-refresh-secret-not-used-in-production-0002
+      CORS_ORIGIN: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci --no-audit --no-fund
-      - run: npm run db:generate
-      - run: npm run lint
-      - run: npm run build
-      - run: npm run test
+      - name: Generate Prisma client
+        run: npm run db:generate
+      - name: Apply migrations to a clean database
+        run: npm run db:deploy
+      - name: Seed foundational data
+        run: npm run db:seed
+      - name: Lint and type-check
+        run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Production build
+        run: npm run build

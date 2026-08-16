@@ -5,6 +5,7 @@ import { SystemRoleKey } from '@prisma/client';
 import { AuditService } from '../audit/audit.module';
 import { AuthenticatedUser } from '../common/auth';
 import { PrismaService } from '../common/prisma.module';
+import { hashRefreshToken, safeEqualHex } from '../common/tokens';
 
 type SessionContext = { ipAddress?: string; userAgent?: string };
 type RegisterInput = { email: string; username: string; displayName: string; password: string };
@@ -44,11 +45,31 @@ export class AuthService {
     try { payload = await this.jwt.verifyAsync<AuthenticatedUser>(refreshToken, { secret: process.env.JWT_REFRESH_SECRET }); } catch { throw new UnauthorizedException('Invalid or expired refresh token'); }
     if (!payload.sid) throw new UnauthorizedException('Invalid refresh token');
     const stored = await this.prisma.refreshToken.findUnique({ where: { sessionId: payload.sid }, include: { session: { include: { user: { include: { roles: { include: { role: true } } } } } } } });
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date() || stored.session.revokedAt || !(await bcrypt.compare(refreshToken, stored.tokenHash))) throw new UnauthorizedException('Invalid or revoked refresh token');
-    await this.prisma.refreshToken.update({ where: { id: stored.id }, data: { revokedAt: new Date() } });
+    if (!stored) throw new UnauthorizedException('Invalid or revoked refresh token');
+
+    // Reuse detection: the token is a validly signed JWT for this session, but
+    // its hash does not match the single current token we hold, or the stored
+    // token has already been revoked. That means a previously rotated/revoked
+    // token is being replayed. Terminate this session family, audit it, reject.
+    const matchesCurrent = safeEqualHex(stored.tokenHash, hashRefreshToken(refreshToken));
+    if (!stored.session.revokedAt && (!matchesCurrent || stored.revokedAt)) {
+      await this.terminateSession(stored.sessionId);
+      await this.audit.record({ actorId: stored.userId, action: 'identity.refresh_reuse_detected', entityType: 'Session', entityId: stored.sessionId, metadata: { reason: matchesCurrent ? 'revoked_token_replayed' : 'rotated_token_replayed' } });
+      throw new UnauthorizedException('Refresh token has been revoked');
+    }
+    if (stored.revokedAt || stored.session.revokedAt || stored.expiresAt < new Date() || !matchesCurrent) throw new UnauthorizedException('Invalid or revoked refresh token');
+
     const result = await this.issueTokens(stored.session.user, stored.session, context);
     await this.audit.record({ actorId: stored.userId, action: 'identity.refresh_rotated', entityType: 'Session', entityId: stored.sessionId });
     return result;
+  }
+
+  private terminateSession(sessionId: string) {
+    const revokedAt = new Date();
+    return this.prisma.$transaction([
+      this.prisma.session.update({ where: { id: sessionId }, data: { revokedAt } }),
+      this.prisma.refreshToken.updateMany({ where: { sessionId, revokedAt: null }, data: { revokedAt } }),
+    ]);
   }
 
   async logout(user: AuthenticatedUser) { await this.revokeSession(user.sub, user.sid); }
@@ -61,7 +82,7 @@ export class AuthService {
   async roles(userId: string) { return this.prisma.userRole.findMany({ where: { userId }, include: { role: { include: { permissions: { include: { permission: true } } } } } }); }
 
   private async startSession(userId: string, context: SessionContext) { const session = await this.prisma.session.create({ data: { userId, ipAddress: context.ipAddress, userAgent: context.userAgent, deviceName: this.deviceName(context.userAgent), expiresAt: new Date(Date.now() + refreshLifetimeMs) } }); const user = await this.userWithRoles(userId); return this.issueTokens(user, session, context); }
-  private async issueTokens(user: Awaited<ReturnType<AuthService['userWithRoles']>>, session: { id: string }, context: SessionContext) { const payload = { sub: user.id, email: user.email, username: user.username, displayName: user.displayName, sid: session.id, roles: user.roles.map(({ role }) => role.key) }; const accessToken = await this.jwt.signAsync(payload, { secret: process.env.JWT_ACCESS_SECRET, expiresIn: (process.env.JWT_ACCESS_TTL ?? '15m') as never }); const refreshToken = await this.jwt.signAsync(payload, { secret: process.env.JWT_REFRESH_SECRET, expiresIn: (process.env.JWT_REFRESH_TTL ?? '7d') as never }); await this.prisma.refreshToken.upsert({ where: { sessionId: session.id }, update: { tokenHash: await bcrypt.hash(refreshToken, 12), revokedAt: null, expiresAt: new Date(Date.now() + refreshLifetimeMs) }, create: { tokenHash: await bcrypt.hash(refreshToken, 12), expiresAt: new Date(Date.now() + refreshLifetimeMs), userId: user.id, sessionId: session.id } }); await this.prisma.session.update({ where: { id: session.id }, data: { lastActiveAt: new Date(), ipAddress: context.ipAddress, userAgent: context.userAgent } }); return { user: publicUser(user), accessToken, refreshToken, sessionId: session.id }; }
+  private async issueTokens(user: Awaited<ReturnType<AuthService['userWithRoles']>>, session: { id: string }, context: SessionContext) { const payload = { sub: user.id, email: user.email, username: user.username, displayName: user.displayName, sid: session.id, roles: user.roles.map(({ role }) => role.key) }; const accessToken = await this.jwt.signAsync(payload, { secret: process.env.JWT_ACCESS_SECRET, expiresIn: (process.env.JWT_ACCESS_TTL ?? '15m') as never }); const refreshToken = await this.jwt.signAsync(payload, { secret: process.env.JWT_REFRESH_SECRET, expiresIn: (process.env.JWT_REFRESH_TTL ?? '7d') as never }); const tokenHash = hashRefreshToken(refreshToken); await this.prisma.refreshToken.upsert({ where: { sessionId: session.id }, update: { tokenHash, revokedAt: null, expiresAt: new Date(Date.now() + refreshLifetimeMs) }, create: { tokenHash, expiresAt: new Date(Date.now() + refreshLifetimeMs), userId: user.id, sessionId: session.id } }); await this.prisma.session.update({ where: { id: session.id }, data: { lastActiveAt: new Date(), ipAddress: context.ipAddress, userAgent: context.userAgent } }); return { user: publicUser(user), accessToken, refreshToken, sessionId: session.id }; }
   private userWithRoles(id: string) { return this.prisma.user.findUniqueOrThrow({ where: { id }, include: { roles: { include: { role: true } } } }); }
   private deviceName(userAgent?: string) { if (!userAgent) return 'Unknown device'; if (/iPhone|iPad|Android/i.test(userAgent)) return 'Mobile device'; if (/Macintosh/i.test(userAgent)) return 'Mac'; if (/Windows/i.test(userAgent)) return 'Windows device'; return 'Browser session'; }
 }
