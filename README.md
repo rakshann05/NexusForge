@@ -2,7 +2,13 @@
 
 NexusForge is a self-hostable collaborative workspace for software teams. It brings projects, Kanban work, team knowledge, chat, and optional AI assistance into a single product without making a hosted AI service a runtime requirement.
 
-> **Status:** Foundation Correctness & Security Hardening (v0.3.1). Builds on the v0.3.0 identity module with a reproducible Prisma migration history, an idempotent seed, fail-fast environment validation, SHA-256 refresh-token storage, refresh-token reuse detection, login throttling, real ESLint, and a CI pipeline that provisions PostgreSQL. See [docs/PROGRESS_STATUS.txt](docs/PROGRESS_STATUS.txt) for current scope.
+> **Status:** Frontend ↔ Backend Authentication Integration (v0.3.2). The Next.js
+> app is now a real client of the NestJS auth API: register, login, silent refresh,
+> logout / logout-all, profile & preferences editing, and live session management —
+> all against the existing backend, with client-side route protection and no
+> hardcoded user data. Builds on v0.3.1 (reproducible migrations, seed, env
+> validation, SHA-256 refresh tokens, reuse detection, login throttling, CI with
+> PostgreSQL). See [docs/PROGRESS_STATUS.txt](docs/PROGRESS_STATUS.txt) for scope.
 
 ## Stack
 
@@ -50,6 +56,33 @@ The GitHub Actions workflow ([.github/workflows/ci.yml](.github/workflows/ci.yml
 spins up a disposable PostgreSQL service and runs install → Prisma generate →
 `migrate deploy` → seed → lint/type-check → tests → production build. It uses only
 free, open-source infrastructure and throwaway (non-production) credentials.
+
+## Frontend authentication
+
+The web app talks to the API through a small typed client and a single auth context:
+
+- **API client** (`apps/web/lib/api.ts`): centralizes every request, sends
+  `credentials: 'include'`, attaches the access token as `Authorization: Bearer`,
+  and on a 401 performs one silent refresh (single-flight) and retries.
+- **Endpoint wrappers** (`apps/web/lib/auth.ts`): typed functions for login,
+  register, logout, logout-all, `me`, profile update, sessions, revoke, roles.
+- **Auth state** (`apps/web/lib/auth-context.tsx`): a `loading → authenticated /
+  unauthenticated` machine. On mount it attempts a silent refresh; the access token
+  lives **only in memory** and is never written to `localStorage`/`sessionStorage`.
+- **Refresh token**: handled entirely by the API's httpOnly, `SameSite=Lax` cookie
+  (`nexusforge_refresh`, path `/api/auth`). JavaScript never reads it.
+- **Route protection** (`apps/web/components/auth-guard.tsx`): client-side. `Protected`
+  redirects unauthenticated users to `/login`; `PublicOnly` sends authenticated users
+  away from `/login` and `/register`.
+
+**Limitations / future work.** Route protection is client-side only — the refresh
+cookie belongs to the API origin, so Next.js middleware/SSR cannot validate the JWT.
+The real security boundary is the API, which rejects unauthorized requests. A
+first-party BFF cookie would enable server-side protection later (see
+[ARCHITECTURE.md](ARCHITECTURE.md)). Password recovery and workspace analytics have no
+backend yet and are shown as honest "coming soon" placeholders. Because the app runs
+credentialed cross-origin requests, the web dev server must stay on **port 3000** to
+match the API's `CORS_ORIGIN`.
 
 ## Commands
 

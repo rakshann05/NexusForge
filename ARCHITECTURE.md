@@ -51,3 +51,33 @@ PostgreSQL is provisioned by committed Prisma migrations in `prisma/migrations/`
 production); `prisma migrate dev` authors new migrations during development. The
 idempotent seed (`prisma/seed.ts`) establishes the system roles and the permission
 catalogue consumed by the RBAC guards.
+
+## Frontend authentication (v0.3.2)
+
+The Next.js app is a real client of the auth API. It uses a browser-SPA-with-refresh-cookie
+model — not a BFF — matching the existing backend contract:
+
+```
+Browser (web origin :3000)
+  fetch(credentials:'include') -- Authorization: Bearer <access, in memory> --> API (:4000)
+  - access token: returned in the JSON body, held ONLY in memory (lib/api.ts)
+  - refresh token: httpOnly SameSite=Lax cookie on the API origin, JS-invisible
+  - on 401 -> single silent POST /api/auth/refresh (cookie) -> rotate -> retry once
+```
+
+- **lib/api.ts** — transport: base URL from `NEXT_PUBLIC_API_URL`, credentials included,
+  bearer injection, single-flight refresh-and-retry, typed `ApiError` (400/401/403/404/
+  409/429/500 mapped to safe messages).
+- **lib/auth.ts** — typed wrappers for every auth endpoint (no duplicated fetch logic).
+- **lib/auth-context.tsx** — `loading -> authenticated / unauthenticated` state; silent
+  refresh on mount; exposes `login`, `register`, `logout`, `logoutAll`, `updateProfile`.
+- **components/auth-guard.tsx** — `Protected` / `PublicOnly` client guards.
+
+**Route protection is client-side only.** The refresh cookie is scoped to the API origin,
+so Next.js middleware/SSR on the web origin cannot read or validate the JWT — the app does
+not claim otherwise. The authoritative boundary remains the API's `JwtAuthGuard`, which
+re-checks the session in PostgreSQL on every request. A future **BFF** (Next route handlers
+proxying the API behind a first-party httpOnly session cookie) would enable server-side /
+middleware protection; it is intentionally out of scope for this milestone. Password reset
+and workspace analytics have no backend endpoints yet and are surfaced as honest
+placeholders rather than fake functionality.

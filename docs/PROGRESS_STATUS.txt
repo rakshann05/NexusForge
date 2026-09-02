@@ -1,10 +1,38 @@
 NEXUSFORGE PROJECT STATUS
 =========================
-Version: 0.3.1 (Foundation Correctness & Security Hardening)
-Last updated: 2026-08-16
+Version: 0.3.2 (Frontend <-> Backend Authentication Integration)
+Last updated: 2026-09-02
 
 MILESTONE STATUS
+- v0.3.2 — Frontend <-> Backend Authentication Integration — COMPLETE
 - v0.3.1 — Foundation Correctness & Security Hardening — COMPLETE
+
+v0.3.2 CHANGES
+- Added a typed frontend API client (apps/web/lib/api.ts): NEXT_PUBLIC_API_URL base,
+  credentials:'include', Bearer injection, single-flight silent refresh + retry on 401,
+  typed ApiError with safe messages for 400/401/403/404/409/429/500.
+- Added endpoint wrappers (apps/web/lib/auth.ts) and client auth state
+  (apps/web/lib/auth-context.tsx): loading/authenticated/unauthenticated, silent refresh
+  on mount, login/register/logout/logout-all/updateProfile, roles from /auth/roles.
+- Access token kept in memory only; refresh token stays in the API httpOnly cookie.
+  No token/secret in localStorage, sessionStorage, or logs.
+- Client-side route guards (apps/web/components/auth-guard.tsx): Protected redirects to
+  /login; PublicOnly redirects authenticated users away from /login and /register.
+- Wired real flows: login, register (with client validation), logout + logout-all,
+  profile (GET/PATCH /auth/me), preferences (PATCH /auth/me), and security/sessions
+  (GET /auth/sessions, DELETE /auth/sessions/:id, sign-out-everywhere).
+- Removed all hardcoded identity/mock data ("Alex Morgan", fake stats, fake sessions).
+  Workspace shows the real user; analytics and password reset are honest placeholders.
+- Accessibility: labelled inputs, aria-invalid/aria-describedby errors, focus/disabled
+  states, aria-busy on submit.
+- Testing: switched web Jest to next/jest + jsdom + Testing Library; added 19 tests
+  covering the API client (refresh/retry/single-flight/error mapping), auth state,
+  route guards, login (success/failure/validation), register validation, profile
+  update, and session revocation.
+- Docs updated (README, ARCHITECTURE) with the frontend auth flow, cookie behavior,
+  client-side protection, and the future BFF option.
+
+v0.3.1 CHANGES
 
 v0.3.1 CHANGES
 - Added committed Prisma migration history (prisma/migrations); the schema is now
@@ -41,16 +69,16 @@ v0.3.0 DONE
 - Completed final authentication security review: revoked sessions invalidate access tokens immediately, current database roles are checked by RBAC guards, and login/refresh/session events are audited.
 
 IN PROGRESS
-- None. v0.3.1 is complete and validated. No implementation work is active pending the next approved milestone.
+- None. v0.3.2 is complete and validated. No implementation work is active pending the next approved milestone.
 
 CURRENT MODULE
-- Foundation Correctness & Security Hardening (v0.3.1), finalized and validated.
+- Frontend <-> Backend Authentication Integration (v0.3.2), finalized and validated.
 
 NEXT
-- Frontend integration milestone: wire the Next.js auth/session UI to the API.
+- Optional server-side/BFF route protection (first-party session cookie via Next route handlers).
 - Enforce permission policies (RBAC guards) on administrative resource endpoints.
-- Interactive persisted Kanban board and document editing UI; password-reset email delivery.
-- Documents/wiki, Socket.IO collaboration, analytics, optional AI adapters, and E2E tests.
+- Organizations & Teams UI, then Projects and interactive Kanban.
+- Password-reset email delivery; documents/wiki; Socket.IO collaboration; analytics; optional AI adapters.
 
 MAJOR DECISIONS
 - npm workspaces keep the initial monorepo simple and free to run.
@@ -69,6 +97,7 @@ TIMELINE
 - 2026-08-03: v0.2.0 protected collaboration-core APIs and audit foundation completed.
 - 2026-08-03: v0.3.0 authentication and identity management completed.
 - 2026-08-16: v0.3.1 foundation correctness and security hardening completed.
+- 2026-09-02: v0.3.2 frontend/backend authentication integration completed.
 
 REMAINING WORK
 - Enforce organization permission policies and member invitations; add mail-backed password reset.
