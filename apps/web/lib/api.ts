@@ -103,10 +103,20 @@ function codeOf(body: unknown): string | undefined {
 // Single-flight refresh: concurrent 401s share one refresh request.
 let refreshPromise: Promise<AuthResponse> | null = null;
 
+// A fetch that maps a network-level failure (server down, DNS, CORS block) to a
+// clear ApiError instead of a bare TypeError, so callers get a useful message.
+async function safeFetch(input: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    throw new ApiError(0, 'Cannot reach the server. Check your connection and that the API is running.');
+  }
+}
+
 export function refreshSession(): Promise<AuthResponse> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
-      const response = await fetch(`${API_URL}/auth/refresh`, {
+      const response = await safeFetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -140,7 +150,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await safeFetch(`${API_URL}${path}`, {
     method,
     credentials: 'include',
     headers,

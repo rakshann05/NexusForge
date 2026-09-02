@@ -63,6 +63,14 @@ describe('apiRequest', () => {
     expect(onUnauthorized).not.toHaveBeenCalled();
   });
 
+  it('maps a network failure (server down) to a clear ApiError', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await expect(apiRequest('/auth/register', { method: 'POST', body: {}, auth: false })).rejects.toMatchObject({
+      status: 0,
+      message: expect.stringContaining('Cannot reach the server'),
+    });
+  });
+
   it('surfaces 409 duplicate messages from the backend', async () => {
     fetchMock.mockResolvedValueOnce(res(409, { message: 'Email is already registered' }));
     await expect(apiRequest('/auth/register', { method: 'POST', body: {}, auth: false })).rejects.toMatchObject({
