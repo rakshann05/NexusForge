@@ -1,6 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { hashRefreshToken } from '../common/tokens';
-import { AuthService } from './auth.service';
+import { AuthService, toPublicUser } from './auth.service';
 
 describe('AuthService', () => {
   it('does not reveal whether a user account exists on failed login', async () => {
@@ -8,6 +8,65 @@ describe('AuthService', () => {
     const service = new AuthService(prisma as never, {} as never, {} as never);
     await expect(service.login('missing@example.com', 'wrong-password', {}))
       .rejects.toBeInstanceOf(UnauthorizedException);
+  });
+});
+
+describe('toPublicUser (response boundary)', () => {
+  const SAFE_KEYS = ['avatarUrl', 'bio', 'displayName', 'email', 'id', 'language', 'theme', 'timezone', 'username'];
+
+  it('strips passwordHash, roles, and timestamps even from a full Prisma row', () => {
+    const fullRow = {
+      id: 'u1',
+      email: 'a@b.co',
+      username: 'ab',
+      displayName: 'Ada',
+      avatarUrl: null,
+      bio: null,
+      timezone: 'UTC',
+      language: 'en',
+      theme: 'system',
+      passwordHash: '$2b$12$super-secret-password-hash',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      roles: [{ role: { key: 'MEMBER' } }],
+    };
+    const result = toPublicUser(fullRow as never);
+    expect(result).not.toHaveProperty('passwordHash');
+    expect(result).not.toHaveProperty('roles');
+    expect(result).not.toHaveProperty('createdAt');
+    expect(result).not.toHaveProperty('updatedAt');
+    expect(Object.keys(result).sort()).toEqual(SAFE_KEYS);
+    expect(JSON.stringify(result)).not.toContain('super-secret-password-hash');
+  });
+});
+
+describe('AuthService issued response is sanitized (real issueTokens)', () => {
+  it('refresh returns a user without passwordHash but with the fields the frontend needs', async () => {
+    const token = 'valid.refresh.token';
+    const fullUser = {
+      id: 'u1', email: 'a@b.co', username: 'ab', displayName: 'Ada', avatarUrl: null, bio: null,
+      timezone: 'UTC', language: 'en', theme: 'system',
+      passwordHash: '$2b$12$leaky-hash-value', roles: [{ role: { key: 'MEMBER' } }],
+    };
+    const stored = {
+      id: 'rt1', tokenHash: hashRefreshToken(token), revokedAt: null, expiresAt: new Date(Date.now() + 60_000),
+      userId: 'u1', sessionId: 's1', session: { id: 's1', revokedAt: null, user: fullUser },
+    };
+    const prisma = {
+      refreshToken: { findUnique: jest.fn().mockResolvedValue(stored), upsert: jest.fn().mockResolvedValue({}) },
+      session: { update: jest.fn().mockResolvedValue({}) },
+    };
+    const jwt = { verifyAsync: jest.fn().mockResolvedValue({ sub: 'u1', sid: 's1' }), signAsync: jest.fn().mockResolvedValue('signed.jwt.token') };
+    const audit = { record: jest.fn().mockResolvedValue(undefined) };
+    const service = new AuthService(prisma as never, jwt as never, audit as never);
+
+    const result = await service.refresh(token, {});
+    expect(result.user).not.toHaveProperty('passwordHash');
+    expect(result.user).not.toHaveProperty('roles');
+    expect(JSON.stringify(result)).not.toContain('leaky-hash-value');
+    expect(result.accessToken).toBe('signed.jwt.token');
+    expect(result.sessionId).toBe('s1');
+    expect(result.user).toMatchObject({ id: 'u1', email: 'a@b.co', username: 'ab', displayName: 'Ada' });
   });
 });
 

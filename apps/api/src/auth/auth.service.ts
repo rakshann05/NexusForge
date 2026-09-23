@@ -11,7 +11,35 @@ type SessionContext = { ipAddress?: string; userAgent?: string };
 type RegisterInput = { email: string; username: string; displayName: string; password: string };
 type ProfileInput = { displayName?: string; bio?: string; timezone?: string; language?: string; theme?: string; avatarUrl?: string };
 const refreshLifetimeMs = 7 * 24 * 60 * 60 * 1000;
-const publicUser = (user: { id: string; email: string; username: string; displayName: string; avatarUrl: string | null; bio: string | null; timezone: string; language: string; theme: string }) => user;
+
+/**
+ * Response-boundary serializer for a user. It explicitly constructs a new object
+ * with only publicly safe fields, so even when it receives a full Prisma row
+ * (which includes passwordHash, roles, and timestamps) none of those ever reach
+ * a response body. Every auth response that returns a user goes through here.
+ */
+export const toPublicUser = (user: {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  timezone: string;
+  language: string;
+  theme: string;
+}) => ({
+  id: user.id,
+  email: user.email,
+  username: user.username,
+  displayName: user.displayName,
+  avatarUrl: user.avatarUrl,
+  bio: user.bio,
+  timezone: user.timezone,
+  language: user.language,
+  theme: user.theme,
+});
+const publicUser = toPublicUser;
 
 @Injectable()
 export class AuthService {

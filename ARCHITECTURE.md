@@ -34,6 +34,11 @@ AI remains an optional adapter: no core workflow calls an AI provider. Redis is 
   an `identity.refresh_reuse_detected` audit event is written, and the request is
   rejected. Only the affected session family is terminated — other sessions are
   untouched.
+- **Sanitized responses.** Every auth response that returns a user passes through
+  `toPublicUser` (`auth/auth.service.ts`), an explicit field-picker that emits only
+  safe fields, so `passwordHash`, roles, and timestamps never reach a response body
+  even when a full Prisma row flows through. Refresh tokens stay cookie-only; session
+  and role endpoints select safe fields explicitly.
 - **Session-bound access tokens.** Every request re-checks the session in the
   database, so a revoked session invalidates its access token immediately.
 - **Fail-fast configuration.** The API validates its environment at boot (see

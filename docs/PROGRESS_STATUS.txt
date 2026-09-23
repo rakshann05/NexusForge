@@ -1,10 +1,21 @@
 NEXUSFORGE PROJECT STATUS
 =========================
-Version: 0.4.0 (Organizations & RBAC)
+Version: 0.4.1 (Authentication Response Security Cleanup)
 Last updated: 2026-09-23
 
 MILESTONE STATUS
+- v0.4.1 — Authentication Response Security Cleanup — COMPLETE
 - v0.4.0 — Organizations & RBAC — COMPLETE
+
+v0.4.1 CHANGES
+- Fixed passwordHash exposure in register/login/refresh responses: the publicUser
+  serializer was an identity function returning the full Prisma row. Replaced it with
+  toPublicUser (exported), an explicit field-picker emitting only the 9 safe user fields.
+- /auth/me, /auth/sessions, /auth/roles were already safe (explicit select); refreshToken
+  remains cookie-only (stripped from response bodies). No architecture/hashing changes.
+- Added regression tests: toPublicUser strips passwordHash/roles/timestamps; a real
+  issueTokens path (via refresh) returns a sanitized user with accessToken/sessionId.
+  Live scan verified no passwordHash/tokenHash/refreshToken/secret in any auth response.
 - v0.3.2 — Frontend <-> Backend Authentication Integration — COMPLETE
 - v0.3.1 — Foundation Correctness & Security Hardening — COMPLETE
 
@@ -94,10 +105,10 @@ v0.3.0 DONE
 - Completed final authentication security review: revoked sessions invalidate access tokens immediately, current database roles are checked by RBAC guards, and login/refresh/session events are audited.
 
 IN PROGRESS
-- None. v0.4.0 is complete and validated. No implementation work is active pending the next approved milestone.
+- None. v0.4.1 is complete and validated. No implementation work is active pending the next approved milestone.
 
 CURRENT MODULE
-- Organizations & RBAC (v0.4.0), finalized and validated.
+- Authentication Response Security Cleanup (v0.4.1), finalized and validated.
 
 NEXT
 - Projects module scoped to organizations (org-role authorization applied to project routes).
@@ -124,6 +135,7 @@ TIMELINE
 - 2026-08-16: v0.3.1 foundation correctness and security hardening completed.
 - 2026-09-02: v0.3.2 frontend/backend authentication integration completed.
 - 2026-09-23: v0.4.0 organizations and RBAC completed.
+- 2026-09-23: v0.4.1 authentication response security cleanup completed.
 
 REMAINING WORK
 - Enforce organization permission policies and member invitations; add mail-backed password reset.
