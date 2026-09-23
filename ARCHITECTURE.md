@@ -81,3 +81,47 @@ proxying the API behind a first-party httpOnly session cookie) would enable serv
 middleware protection; it is intentionally out of scope for this milestone. Password reset
 and workspace analytics have no backend endpoints yet and are surfaced as honest
 placeholders rather than fake functionality.
+
+## Organizations & RBAC (v0.4.0)
+
+Organizations are the multi-tenancy boundary. Every organization-scoped request passes:
+
+```
+JwtAuthGuard (identity) -> OrgAccessGuard (membership + org permission) -> service (invariants)
+```
+
+**Org-scoped authorization.** The global RBAC guards (`RolesGuard` / `PermissionsGuard`)
+check a user's *global* role and are not tenant-aware, so they cannot answer "may this user
+update THIS organization". Authorization for organization resources is derived from the
+caller's `OrganizationMember.role` (OWNER / ADMIN / MEMBER / VIEWER) — the tenant boundary
+the schema already models. `OrgAccessGuard` (`organizations/org-access.ts`) follows the same
+Reflector + decorator pattern as `PermissionsGuard`: it resolves the caller's membership for
+the `:organizationId` param, attaches it to the request, and checks the required
+`@OrgPermissions(...)` against a static role→permission map. It is not a second auth system —
+JWT auth, `CurrentUser`, Prisma models, and audit logging are all reused.
+
+Permission map (naming reuses the seed's `organization:*` convention):
+
+| Permission | OWNER | ADMIN | MEMBER | VIEWER |
+| --- | :-: | :-: | :-: | :-: |
+| organization:read | ✓ | ✓ | ✓ | ✓ |
+| organization:update | ✓ | ✓ | | |
+| organization:manage_members | ✓ | ✓ | | |
+
+**Isolation (IDOR-safe).** A non-member request for any organization resource returns
+**404**, not 403 — the existence of another tenant's org is never disclosed. Authorization is
+always explicit and server-side; ID unguessability is never relied upon. Cross-tenant access
+is covered by tests (`org-access.spec.ts`) and end-to-end checks.
+
+**Owner-safety invariants** (enforced in `organizations.service.ts`): the creator becomes
+OWNER; an organization must always keep at least one owner (last-owner demotion/removal is
+rejected); only an OWNER may grant or revoke the OWNER role (blocks admin self-escalation);
+managing members requires `organization:manage_members`; a member may remove only themselves
+(leave). Important actions emit audit events — `organization.created`, `organization.updated`,
+`organization.member_added`, `organization.member_role_changed`, `organization.member_removed`
+— with actor, organization, target, and non-sensitive metadata.
+
+**Frontend.** `lib/organizations.ts` wraps the endpoints; an org switcher in the sidebar and
+`/organizations` (+`/organizations/[organizationId]`) pages provide create / view / update /
+member-management UI. The active organization is the URL segment (no global store). Management
+controls are shown per the caller's role for UX only — the backend re-checks every request.

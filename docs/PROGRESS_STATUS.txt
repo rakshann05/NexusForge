@@ -1,11 +1,36 @@
 NEXUSFORGE PROJECT STATUS
 =========================
-Version: 0.3.2 (Frontend <-> Backend Authentication Integration)
-Last updated: 2026-09-02
+Version: 0.4.0 (Organizations & RBAC)
+Last updated: 2026-09-23
 
 MILESTONE STATUS
+- v0.4.0 — Organizations & RBAC — COMPLETE
 - v0.3.2 — Frontend <-> Backend Authentication Integration — COMPLETE
 - v0.3.1 — Foundation Correctness & Security Hardening — COMPLETE
+
+v0.4.0 CHANGES
+- Added Organization.description (VARCHAR(500)) via migration add_organization_description
+  (additive, nullable, preserves data). Idempotent seed unchanged.
+- Org-scoped RBAC (apps/api/src/organizations/org-access.ts): OrgAccessGuard resolves the
+  caller's OrganizationMember for :organizationId (404 for non-members -> tenant isolation),
+  attaches it, and checks @OrgPermissions against a role->permission map reusing the seed's
+  organization:read / organization:update / organization:manage_members naming. Reuses the
+  existing JWT auth, CurrentUser, Prisma models, and audit logging (no second auth system).
+- Organizations API (organizations.controller.ts / organizations.service.ts):
+  GET/POST /organizations, GET/PATCH /organizations/:id,
+  GET/POST /organizations/:id/members, PATCH .../members/:userId/role,
+  DELETE .../members/:userId. Safe representations only (no passwordHash/tokens/sessions).
+- Owner-safety invariants: creator becomes OWNER; org always keeps >=1 owner (last-owner
+  demote/remove rejected); only OWNER may grant/revoke OWNER (blocks admin self-escalation);
+  managing others needs manage_members; members may self-remove (leave); invalid roles -> 400.
+- Audit events: organization.updated, organization.member_added, organization.member_role_changed,
+  organization.member_removed (organization.created already existed).
+- Frontend: lib/organizations.ts wrappers; sidebar org switcher; /organizations (list + create)
+  and /organizations/[organizationId] (details, edit, members, role change, add/remove) pages;
+  role-gated controls (UX only). Active org = URL segment (no global store).
+- Tests: 14 backend org tests (guard incl. cross-tenant isolation + service invariants),
+  7 frontend wrapper tests. Full suite: 63 tests (36 API + 27 web). Backend E2E verified
+  cross-tenant 404s, RBAC 403s, owner-safety, and no sensitive-field leakage.
 
 v0.3.2 CHANGES
 - Added a typed frontend API client (apps/web/lib/api.ts): NEXT_PUBLIC_API_URL base,
@@ -69,16 +94,16 @@ v0.3.0 DONE
 - Completed final authentication security review: revoked sessions invalidate access tokens immediately, current database roles are checked by RBAC guards, and login/refresh/session events are audited.
 
 IN PROGRESS
-- None. v0.3.2 is complete and validated. No implementation work is active pending the next approved milestone.
+- None. v0.4.0 is complete and validated. No implementation work is active pending the next approved milestone.
 
 CURRENT MODULE
-- Frontend <-> Backend Authentication Integration (v0.3.2), finalized and validated.
+- Organizations & RBAC (v0.4.0), finalized and validated.
 
 NEXT
+- Projects module scoped to organizations (org-role authorization applied to project routes).
 - Optional server-side/BFF route protection (first-party session cookie via Next route handlers).
-- Enforce permission policies (RBAC guards) on administrative resource endpoints.
-- Organizations & Teams UI, then Projects and interactive Kanban.
-- Password-reset email delivery; documents/wiki; Socket.IO collaboration; analytics; optional AI adapters.
+- Ownership transfer flow (intentionally deferred from v0.4.0).
+- Password-reset email delivery; documents/wiki; Kanban; Socket.IO collaboration; analytics; optional AI adapters.
 
 MAJOR DECISIONS
 - npm workspaces keep the initial monorepo simple and free to run.
@@ -98,6 +123,7 @@ TIMELINE
 - 2026-08-03: v0.3.0 authentication and identity management completed.
 - 2026-08-16: v0.3.1 foundation correctness and security hardening completed.
 - 2026-09-02: v0.3.2 frontend/backend authentication integration completed.
+- 2026-09-23: v0.4.0 organizations and RBAC completed.
 
 REMAINING WORK
 - Enforce organization permission policies and member invitations; add mail-backed password reset.

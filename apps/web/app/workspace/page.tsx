@@ -36,7 +36,10 @@ export default function Workspace() {
             milestones. For now you can manage your identity, preferences, and active sessions.
           </p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
-            <Link className="button" href="/profile">
+            <Link className="button" href="/organizations">
+              Organizations
+            </Link>
+            <Link className="secondary" href="/profile">
               Edit profile
             </Link>
             <Link className="secondary" href="/settings">

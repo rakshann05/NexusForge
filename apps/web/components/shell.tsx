@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../lib/auth-context';
 import { Protected } from './auth-guard';
+import { OrgSwitcher } from './org-switcher';
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -21,9 +22,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <Link href="/workspace" className="brand">
           <span className="mark">N</span>NexusForge
         </Link>
+        <OrgSwitcher />
         <div className="nav">
-          <span className="active">Overview</span>
-          <span>My work</span>
+          <Link href="/workspace">Overview</Link>
+          <Link href="/organizations">Organizations</Link>
           <span>Projects</span>
           <span>Knowledge base</span>
           <span>Team chat</span>

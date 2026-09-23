@@ -2,13 +2,13 @@
 
 NexusForge is a self-hostable collaborative workspace for software teams. It brings projects, Kanban work, team knowledge, chat, and optional AI assistance into a single product without making a hosted AI service a runtime requirement.
 
-> **Status:** Frontend ↔ Backend Authentication Integration (v0.3.2). The Next.js
-> app is now a real client of the NestJS auth API: register, login, silent refresh,
-> logout / logout-all, profile & preferences editing, and live session management —
-> all against the existing backend, with client-side route protection and no
-> hardcoded user data. Builds on v0.3.1 (reproducible migrations, seed, env
-> validation, SHA-256 refresh tokens, reuse detection, login throttling, CI with
-> PostgreSQL). See [docs/PROGRESS_STATUS.txt](docs/PROGRESS_STATUS.txt) for scope.
+> **Status:** Organizations & RBAC (v0.4.0). NexusForge is now a multi-tenant
+> workspace: users create organizations, switch between them, view/update details,
+> and manage members with organization-scoped role-based access control (OWNER /
+> ADMIN / MEMBER / VIEWER), enforced server-side with strict tenant isolation and
+> audit logging. Builds on v0.3.2 (frontend↔backend auth) and v0.3.1 (migrations,
+> seed, env validation, refresh-token hardening, CI with PostgreSQL). See
+> [docs/PROGRESS_STATUS.txt](docs/PROGRESS_STATUS.txt) for scope.
 
 ## Stack
 
@@ -75,7 +75,33 @@ The web app talks to the API through a small typed client and a single auth cont
   redirects unauthenticated users to `/login`; `PublicOnly` sends authenticated users
   away from `/login` and `/register`.
 
-**Limitations / future work.** Route protection is client-side only — the refresh
+## Organizations & RBAC
+
+NexusForge is multi-tenant: all workspace data lives under an organization, and access
+is governed by the caller's **organization role** (OWNER / ADMIN / MEMBER / VIEWER).
+
+Endpoints (all under `JwtAuthGuard`; org routes additionally under `OrgAccessGuard`):
+
+| Method | Path | Required org permission |
+| --- | --- | --- |
+| GET | `/organizations` | — (your memberships) |
+| POST | `/organizations` | — (any authenticated user; you become OWNER) |
+| GET | `/organizations/:id` | organization:read |
+| PATCH | `/organizations/:id` | organization:update |
+| GET | `/organizations/:id/members` | organization:read |
+| POST | `/organizations/:id/members` | organization:manage_members |
+| PATCH | `/organizations/:id/members/:userId/role` | organization:manage_members |
+| DELETE | `/organizations/:id/members/:userId` | membership (self-leave) / manage_members (others) |
+
+Authorization is enforced **server-side**. Non-members get `404` (tenant existence is not
+disclosed), an organization always keeps at least one owner, and only owners can grant the
+owner role. Member invites use an existing user's email/username (no email subsystem in this
+milestone). The frontend adds an org switcher and organization/member pages; the UI hides
+controls by role for convenience only. See [ARCHITECTURE.md](ARCHITECTURE.md) for the model.
+
+## Frontend authentication — limitations / future work
+
+Route protection is client-side only — the refresh
 cookie belongs to the API origin, so Next.js middleware/SSR cannot validate the JWT.
 The real security boundary is the API, which rejects unauthorized requests. A
 first-party BFF cookie would enable server-side protection later (see
