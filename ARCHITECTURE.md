@@ -208,3 +208,30 @@ The `TaskComment` model (migration `add_task_comments`) cascades on task/author 
 create form and filters. Task moves use a per-card status **select** — a keyboard-accessible
 alternative rather than a drag-only workflow. A task detail page edits fields and threads
 comments. Contributor controls are gated by effective role for UX only.
+
+## Documents & Knowledge Base (v0.7.0)
+
+Documents are organization-scoped Markdown pages with full revision history. Routes run
+under `JwtAuthGuard -> OrgAccessGuard`; reads require `organization:read` (any member) and
+writes require `organization:contribute` (a new org permission granted to OWNER/ADMIN/MEMBER
+but **not** VIEWER). Every operation loads the document with `findFirst({ where: { id,
+organizationId } })`, so a document from another tenant is a `404`.
+
+Each save appends a `DocumentRevision` (migration `add_document_revisions`) capturing the
+title, content, and author — so the history is an append-only log and the current content is
+the latest revision. Restoring a revision writes its content back and records a new revision.
+Updates support **optimistic concurrency**: the client sends the `updatedAt` it loaded, and a
+mismatch returns `409` rather than silently overwriting a newer edit. Search (`?q=`) matches
+title or content case-insensitively, always scoped to the organization. Audit events:
+`document.created`, `document.updated`, `document.deleted`, `document.restored`.
+
+**Endpoints:** `GET/POST /organizations/:organizationId/documents` (list supports `?q=` search),
+`GET/PATCH/DELETE .../documents/:documentId`, `GET .../:documentId/revisions`,
+`GET .../revisions/:revisionId`, `POST .../revisions/:revisionId/restore`.
+
+**Frontend.** `lib/documents.ts` wraps the endpoints; a knowledge-base list/search page and a
+split editor (`/organizations/:id/documents/:documentId`) with live Markdown preview, a
+revision list (view/restore), and concurrency-safe save. Markdown is rendered by
+`components/markdown.tsx`, which builds React nodes directly (never `dangerouslySetInnerHTML`,
+no raw HTML, URLs restricted to http(s)/relative/anchor) — a documented safe subset, not full
+CommonMark. Edit controls are gated by role for UX only.

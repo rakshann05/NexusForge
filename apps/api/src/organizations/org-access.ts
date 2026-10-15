@@ -22,12 +22,18 @@ import { PrismaService } from '../common/prisma.module';
  * schema already models. This guard follows the same Reflector + decorator
  * pattern as PermissionsGuard; it does not introduce a second auth system.
  */
-export type OrgPermission = 'organization:read' | 'organization:update' | 'organization:manage_members';
+export type OrgPermission =
+  | 'organization:read'
+  | 'organization:contribute'
+  | 'organization:update'
+  | 'organization:manage_members';
 
+// organization:contribute covers creating/editing org-scoped content (e.g. documents):
+// every member except VIEWER. update/manage_members remain owner/admin only.
 export const ORG_ROLE_PERMISSIONS: Record<OrganizationRole, OrgPermission[]> = {
-  OWNER: ['organization:read', 'organization:update', 'organization:manage_members'],
-  ADMIN: ['organization:read', 'organization:update', 'organization:manage_members'],
-  MEMBER: ['organization:read'],
+  OWNER: ['organization:read', 'organization:contribute', 'organization:update', 'organization:manage_members'],
+  ADMIN: ['organization:read', 'organization:contribute', 'organization:update', 'organization:manage_members'],
+  MEMBER: ['organization:read', 'organization:contribute'],
   VIEWER: ['organization:read'],
 };
 

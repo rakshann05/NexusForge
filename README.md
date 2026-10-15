@@ -2,12 +2,11 @@
 
 NexusForge is a self-hostable collaborative workspace for software teams. It brings projects, Kanban work, team knowledge, chat, and optional AI assistance into a single product without making a hosted AI service a runtime requirement.
 
-> **Status:** Tasks & Kanban (v0.6.0). Projects now contain **tasks** with status,
-> priority, assignee, and comments, shown on a Kanban board. Writes require a project
-> contributor (ADMIN/MEMBER or org admin); VIEWers and non-members are read-only.
-> Everything is nested under organization + project isolation
-> (`User → Organization → Project → Task`): tasks are loaded by project, so foreign
-> ids return 404. Builds on v0.5.0 (Projects) and v0.4.x/v0.3.x. See
+> **Status:** Documents & Knowledge Base (v0.7.0). Organizations now have a Markdown
+> **knowledge base** with full revision history, safe rendering, search, and
+> optimistic-concurrency saves. Reading needs org membership; editing needs an org
+> contributor (not a VIEWER). Builds on v0.6.0 (Tasks & Kanban), v0.5.0 (Projects),
+> and v0.4.x/v0.3.x — all under the same server-enforced tenant isolation. See
 > [docs/PROGRESS_STATUS.txt](docs/PROGRESS_STATUS.txt) for scope.
 
 ## Stack
@@ -138,6 +137,25 @@ or org OWNER/ADMIN — not a VIEWER).
 
 The board uses a per-card status **select** for moves (keyboard-accessible, not drag-only).
 Tasks are always scoped to their project, so foreign/cross-tenant ids return 404.
+
+## Knowledge base (documents)
+
+Organization-scoped Markdown documents with revision history. Reading needs org membership;
+creating/editing/deleting/restoring needs an **org contributor** (OWNER/ADMIN/MEMBER — not a
+VIEWER).
+
+| Method | Path | Authorization |
+| --- | --- | --- |
+| GET | `/organizations/:organizationId/documents` | org member (supports `?q=` search over title/content) |
+| POST | `/organizations/:organizationId/documents` | contributor |
+| GET / PATCH / DELETE | `.../documents/:documentId` | member / contributor / contributor |
+| GET | `.../documents/:documentId/revisions` | org member |
+| GET | `.../revisions/:revisionId` | org member |
+| POST | `.../revisions/:revisionId/restore` | contributor |
+
+Updates use optimistic concurrency (`expectedUpdatedAt` → `409` on a stale write). Markdown is
+rendered as React nodes (no raw HTML / `dangerouslySetInnerHTML`; URLs restricted) — a safe
+documented subset. Documents are always scoped to their organization (foreign ids → 404).
 
 ## Frontend authentication — limitations / future work
 

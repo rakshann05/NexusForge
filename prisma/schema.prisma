@@ -60,6 +60,7 @@ model User {
   assignedTasks  Task[]               @relation("TaskAssignee")
   createdTasks   Task[]               @relation("TaskCreator")
   taskComments   TaskComment[]        @relation("CommentAuthor")
+  docRevisions   DocumentRevision[]   @relation("DocRevisionAuthor")
   refreshTokens  RefreshToken[]
   sessions       Session[]
   roles          UserRole[]
@@ -218,15 +219,29 @@ model TaskComment {
 }
 
 model Document {
-  id             String       @id @default(cuid())
+  id             String             @id @default(cuid())
   title          String
-  content        String       @default("")
+  content        String             @default("")
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  revisions      DocumentRevision[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
-  @@index([organizationId])
+  @@index([organizationId, updatedAt])
+}
+
+model DocumentRevision {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  title      String
+  content    String
+  authorId   String?
+  author     User?    @relation("DocRevisionAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+
+  @@index([documentId, createdAt])
 }
 
 model AuditLog {

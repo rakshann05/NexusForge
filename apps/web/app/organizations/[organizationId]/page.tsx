@@ -233,6 +233,18 @@ export default function OrganizationDetail() {
         ))}
       </section>
 
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="section-row">
+          <div>
+            <h2>Knowledge base</h2>
+            <p className="muted">Markdown documents and revisions for this organization.</p>
+          </div>
+          <Link className="secondary" href={`/organizations/${organizationId}/documents`}>
+            Open knowledge base
+          </Link>
+        </div>
+      </section>
+
       <section className="grid content" style={{ marginTop: 16 }}>
         <article className="card">
           <div className="section-row">

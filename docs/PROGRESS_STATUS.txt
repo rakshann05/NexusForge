@@ -1,13 +1,30 @@
 NEXUSFORGE PROJECT STATUS
 =========================
-Version: 0.6.0 (Tasks & Kanban)
+Version: 0.7.0 (Documents & Knowledge Base)
 Last updated: 2026-10-15
 
 MILESTONE STATUS
+- v0.7.0 — Documents & Knowledge Base — COMPLETE
 - v0.6.0 — Tasks & Kanban — COMPLETE
 - v0.5.0 — Projects & Project Membership — COMPLETE
 - v0.4.1 — Authentication Response Security Cleanup — COMPLETE
 - v0.4.0 — Organizations & RBAC — COMPLETE
+
+v0.7.0 CHANGES
+- Schema (migration add_document_revisions, additive): DocumentRevision model (title, content,
+  authorId SetNull, cascade on document), Document.revisions relation, @@index([organizationId,updatedAt]).
+- org-access.ts: new organization:contribute permission (OWNER/ADMIN/MEMBER, not VIEWER) for
+  org-scoped content writes.
+- Documents API (apps/api/src/documents/*): list + ?q= search (title/content, org-scoped),
+  create (+first revision), get, update (append revision + optimistic concurrency via
+  expectedUpdatedAt -> 409), delete, revisions list/get, restore. Every op scopes the document
+  to its org (foreign id -> 404). Audit: document.created/updated/deleted/restored.
+- Frontend: lib/documents.ts; knowledge-base list/search page; split editor with live Markdown
+  preview, revision view/restore, concurrency-safe save. components/markdown.tsx renders React
+  nodes directly (no dangerouslySetInnerHTML/raw HTML; sanitized links) = safe Markdown subset.
+- Tests: 6 backend document tests + 6 web wrapper tests. Suite: 117 (68 API + 49 web).
+  Live E2E: revisions, 409 concurrency, search (title+content), restore, VIEWER read-only
+  (403 writes), cross-tenant 404, unauth 401, no field leaks.
 
 v0.6.0 CHANGES
 - Schema (migration add_task_comments, additive): TaskComment model (body, taskId, authorId,
@@ -145,10 +162,10 @@ v0.3.0 DONE
 - Completed final authentication security review: revoked sessions invalidate access tokens immediately, current database roles are checked by RBAC guards, and login/refresh/session events are audited.
 
 IN PROGRESS
-- None. v0.6.0 is complete and validated. No implementation work is active pending the next approved milestone.
+- None. v0.7.0 is complete and validated. No implementation work is active pending the next approved milestone.
 
 CURRENT MODULE
-- Tasks & Kanban (v0.6.0), finalized and validated.
+- Documents & Knowledge Base (v0.7.0), finalized and validated.
 
 NEXT
 - Projects module scoped to organizations (org-role authorization applied to project routes).
@@ -178,6 +195,7 @@ TIMELINE
 - 2026-09-23: v0.4.1 authentication response security cleanup completed.
 - 2026-10-15: v0.5.0 projects and project membership completed.
 - 2026-10-15: v0.6.0 tasks and kanban completed.
+- 2026-10-15: v0.7.0 documents and knowledge base completed.
 
 REMAINING WORK
 - Enforce organization permission policies and member invitations; add mail-backed password reset.
