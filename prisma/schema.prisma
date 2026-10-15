@@ -59,6 +59,7 @@ model User {
   projectMembers ProjectMember[]
   assignedTasks  Task[]               @relation("TaskAssignee")
   createdTasks   Task[]               @relation("TaskCreator")
+  taskComments   TaskComment[]        @relation("CommentAuthor")
   refreshTokens  RefreshToken[]
   sessions       Session[]
   roles          UserRole[]
@@ -195,10 +196,25 @@ model Task {
   assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   creatorId   String
   creator     User         @relation("TaskCreator", fields: [creatorId], references: [id])
+  comments    TaskComment[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   @@index([projectId, status, position])
+  @@index([assigneeId])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  body      String   @db.VarChar(5000)
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId, createdAt])
 }
 
 model Document {

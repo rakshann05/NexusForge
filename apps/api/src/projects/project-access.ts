@@ -27,8 +27,15 @@ import { OrgMembershipContext } from '../organizations/org-access';
  * project:read is satisfied by organization access alone (org members may see
  * their org's projects); management permissions require effective project-admin.
  */
-export type ProjectPermission = 'project:read' | 'project:update' | 'project:manage_members' | 'project:delete';
+export type ProjectPermission =
+  | 'project:read'
+  | 'project:contribute'
+  | 'project:update'
+  | 'project:manage_members'
+  | 'project:delete';
 
+// Management (settings/membership/archival) requires project-admin; contribution
+// (tasks, comments) additionally allows project MEMBERs but not VIEWERs.
 const MANAGE: ProjectPermission[] = ['project:update', 'project:manage_members', 'project:delete'];
 
 const PROJECT_PERMISSIONS_KEY = 'project.permissions';
@@ -51,6 +58,8 @@ export interface ProjectAccessContext {
   membershipRole: ProjectRole | null;
   /** True when the caller may manage the project (org OWNER/ADMIN or project ADMIN). */
   isAdmin: boolean;
+  /** True when the caller may contribute (manage, or project MEMBER). VIEWERs cannot. */
+  isContributor: boolean;
   /** Best-effort role to display for the caller (explicit, else implicit admin, else null). */
   effectiveRole: ProjectRole | null;
 }
@@ -107,10 +116,11 @@ export class ProjectAccessGuard implements CanActivate {
 
     const orgAdmin = orgMembership.role === 'OWNER' || orgMembership.role === 'ADMIN';
     const isAdmin = orgAdmin || membership?.role === ProjectRole.ADMIN;
+    const isContributor = isAdmin || membership?.role === ProjectRole.MEMBER;
     const effectiveRole = membership?.role ?? (orgAdmin ? ProjectRole.ADMIN : null);
 
     request.project = { ...project, memberCount: project._count.members };
-    request.projectAccess = { membershipRole: membership?.role ?? null, isAdmin, effectiveRole };
+    request.projectAccess = { membershipRole: membership?.role ?? null, isAdmin, isContributor, effectiveRole };
 
     const required = this.reflector.getAllAndOverride<ProjectPermission[]>(PROJECT_PERMISSIONS_KEY, [
       context.getHandler(),
@@ -119,6 +129,9 @@ export class ProjectAccessGuard implements CanActivate {
     for (const permission of required ?? []) {
       if (MANAGE.includes(permission) && !isAdmin) {
         throw new ForbiddenException('You do not have permission to manage this project.');
+      }
+      if (permission === 'project:contribute' && !isContributor) {
+        throw new ForbiddenException('You do not have permission to contribute to this project.');
       }
     }
     return true;

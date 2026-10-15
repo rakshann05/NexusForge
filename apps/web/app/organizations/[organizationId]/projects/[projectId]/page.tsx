@@ -282,10 +282,15 @@ export default function ProjectDetail() {
           </article>
 
           <article className="card">
-            <h2>Tasks</h2>
-            <p className="muted" style={{ fontSize: 14 }}>
-              Coming in the next milestone.
-            </p>
+            <div className="section-row">
+              <div>
+                <h2>Tasks</h2>
+                <p className="muted">Plan and track work on the board.</p>
+              </div>
+              <Link className="button" href={`/organizations/${organizationId}/projects/${projectId}/board`}>
+                Open board
+              </Link>
+            </div>
           </article>
         </div>
 

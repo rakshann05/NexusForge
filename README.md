@@ -2,12 +2,12 @@
 
 NexusForge is a self-hostable collaborative workspace for software teams. It brings projects, Kanban work, team knowledge, chat, and optional AI assistance into a single product without making a hosted AI service a runtime requirement.
 
-> **Status:** Projects & Project Membership (v0.5.0). Organizations now contain
-> **projects** with their own membership and roles. Project access is enforced
-> server-side and nested under organization isolation (`User → Organization →
-> Project → Project Membership`): a project is loaded by both its id and its
-> organization id, so swapping ids returns 404. Builds on v0.4.x (Organizations &
-> RBAC, auth-response hardening) and v0.3.x (auth integration, foundation). See
+> **Status:** Tasks & Kanban (v0.6.0). Projects now contain **tasks** with status,
+> priority, assignee, and comments, shown on a Kanban board. Writes require a project
+> contributor (ADMIN/MEMBER or org admin); VIEWers and non-members are read-only.
+> Everything is nested under organization + project isolation
+> (`User → Organization → Project → Task`): tasks are loaded by project, so foreign
+> ids return 404. Builds on v0.5.0 (Projects) and v0.4.x/v0.3.x. See
 > [docs/PROGRESS_STATUS.txt](docs/PROGRESS_STATUS.txt) for scope.
 
 ## Stack
@@ -120,6 +120,24 @@ organization member.
 Authorization is enforced server-side: a project is loaded by **both** its id and
 organization id (swapped/foreign ids → 404), deletion is a soft-delete that preserves data,
 and the UI hides controls by role for convenience only. See [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Tasks & Kanban
+
+Tasks live inside projects. Reading tasks needs organization access; creating, updating,
+moving, deleting tasks and posting comments require a **contributor** (project ADMIN/MEMBER
+or org OWNER/ADMIN — not a VIEWER).
+
+| Method | Path | Authorization |
+| --- | --- | --- |
+| GET | `.../projects/:projectId/tasks` | project read (filters: `status`, `priority`, `assigneeId`) |
+| POST | `.../projects/:projectId/tasks` | contributor (assignee must be a project member) |
+| GET / PATCH / DELETE | `.../tasks/:taskId` | read / contributor / contributor |
+| PATCH | `.../tasks/:taskId/move` | contributor (status + position) |
+| GET / POST | `.../tasks/:taskId/comments` | read / contributor |
+| DELETE | `.../tasks/:taskId/comments/:commentId` | author or project admin |
+
+The board uses a per-card status **select** for moves (keyboard-accessible, not drag-only).
+Tasks are always scoped to their project, so foreign/cross-tenant ids return 404.
 
 ## Frontend authentication — limitations / future work
 

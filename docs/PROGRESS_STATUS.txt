@@ -1,12 +1,30 @@
 NEXUSFORGE PROJECT STATUS
 =========================
-Version: 0.5.0 (Projects & Project Membership)
+Version: 0.6.0 (Tasks & Kanban)
 Last updated: 2026-10-15
 
 MILESTONE STATUS
+- v0.6.0 — Tasks & Kanban — COMPLETE
 - v0.5.0 — Projects & Project Membership — COMPLETE
 - v0.4.1 — Authentication Response Security Cleanup — COMPLETE
 - v0.4.0 — Organizations & RBAC — COMPLETE
+
+v0.6.0 CHANGES
+- Schema (migration add_task_comments, additive): TaskComment model (body, taskId, authorId,
+  timestamps, cascade), Task.comments relation, @@index([taskId,createdAt]) and Task @@index([assigneeId]).
+- ProjectAccessGuard gained a project:contribute level: tasks/comments writes require a
+  contributor (project ADMIN/MEMBER or org OWNER/ADMIN); VIEWers/non-members are read-only.
+- Tasks API (apps/api/src/tasks/*): list (filters status/priority/assigneeId), create, get,
+  update, move (status+position), delete; comments list/add/delete. Every op scopes the task
+  to its project (foreign id -> 404). Assignee must be a project member (400 otherwise).
+  Comment delete = author or project admin. Safe user fields only. Audit: task.created/updated/
+  moved/deleted/commented/comment_deleted.
+- Frontend: lib/tasks.ts; Kanban board (/organizations/:id/projects/:projectId/board) with
+  columns, create form, priority/assignee filters, and keyboard-accessible per-card move select;
+  task detail page with edit + threaded comments + delete; project page links to the board.
+- Tests: 10 backend task/guard tests + 6 web wrapper tests. Suite: 105 (62 API + 43 web).
+  Live E2E: cross-tenant 404, VIEWER read-only (403 writes), MEMBER contributes, assignee
+  validation (400), comment author/admin-only delete, move persistence, no field leaks.
 
 v0.5.0 CHANGES
 - Schema (migration add_project_archive_and_member_indexes, additive/data-preserving):
@@ -127,10 +145,10 @@ v0.3.0 DONE
 - Completed final authentication security review: revoked sessions invalidate access tokens immediately, current database roles are checked by RBAC guards, and login/refresh/session events are audited.
 
 IN PROGRESS
-- None. v0.5.0 is complete and validated. No implementation work is active pending the next approved milestone.
+- None. v0.6.0 is complete and validated. No implementation work is active pending the next approved milestone.
 
 CURRENT MODULE
-- Projects & Project Membership (v0.5.0), finalized and validated.
+- Tasks & Kanban (v0.6.0), finalized and validated.
 
 NEXT
 - Projects module scoped to organizations (org-role authorization applied to project routes).
@@ -159,6 +177,7 @@ TIMELINE
 - 2026-09-23: v0.4.0 organizations and RBAC completed.
 - 2026-09-23: v0.4.1 authentication response security cleanup completed.
 - 2026-10-15: v0.5.0 projects and project membership completed.
+- 2026-10-15: v0.6.0 tasks and kanban completed.
 
 REMAINING WORK
 - Enforce organization permission policies and member invitations; add mail-backed password reset.

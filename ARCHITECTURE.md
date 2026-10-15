@@ -176,3 +176,35 @@ data, and archived projects are excluded from listings. Audit events: `project.c
 projects, `/organizations/:id/projects` provides list + create, and
 `/organizations/:id/projects/:projectId` shows details, members, role management, archive,
 and a "Tasks — coming in the next milestone" placeholder. Controls are role-gated for UX only.
+
+## Tasks & Kanban (v0.6.0)
+
+Tasks are project-scoped, extending the hierarchy to
+`… → Project → Task (+ comments)`. Task routes reuse the project chain:
+
+```
+JwtAuthGuard -> OrgAccessGuard -> ProjectAccessGuard -> service (task∈project check)
+```
+
+`ProjectAccessGuard` gained a **project:contribute** level: reading tasks needs only
+organization access (`project:read`), while creating/updating/moving/deleting tasks and
+posting comments require a contributor — a project ADMIN/MEMBER or an org OWNER/ADMIN, but
+**not** a project VIEWER or a plain org member who is not on the project. Management actions
+(project settings, membership, archive) still require project-admin.
+
+Every task operation loads the task with `findFirst({ where: { id, projectId } })`, so a task
+from another project/tenant is a `404`. An assignee **must** be a member of the project
+(`400` otherwise). Comment deletion is restricted to the author or a project admin. Task
+payloads expose only safe user fields for assignee/creator. Audit events: `task.created`,
+`task.updated`, `task.moved`, `task.deleted`, `task.commented`, `task.comment_deleted`.
+The `TaskComment` model (migration `add_task_comments`) cascades on task/author deletion.
+
+**Endpoints:** `GET/POST .../projects/:projectId/tasks` (list supports `status`, `priority`,
+`assigneeId` filters), `GET/PATCH/DELETE .../tasks/:taskId`, `PATCH .../tasks/:taskId/move`,
+`GET/POST .../tasks/:taskId/comments`, `DELETE .../tasks/:taskId/comments/:commentId`.
+
+**Frontend.** `lib/tasks.ts` wraps the endpoints; a Kanban board
+(`/organizations/:id/projects/:projectId/board`) groups tasks into status columns with a
+create form and filters. Task moves use a per-card status **select** — a keyboard-accessible
+alternative rather than a drag-only workflow. A task detail page edits fields and threads
+comments. Contributor controls are gated by effective role for UX only.

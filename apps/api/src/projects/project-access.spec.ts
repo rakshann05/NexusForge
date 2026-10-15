@@ -50,4 +50,12 @@ describe('ProjectAccessGuard', () => {
     const guard = new ProjectAccessGuard(reflector(['project:manage_members']) as never, prisma as never);
     await expect(guard.canActivate(contextFor(request))).resolves.toBe(true);
   });
+
+  it('allows a project MEMBER to contribute but denies a project VIEWER', async () => {
+    const asRole = (role: string) => ({ project: { findFirst: jest.fn().mockResolvedValue(project) }, projectMember: { findUnique: jest.fn().mockResolvedValue({ role }) } });
+    const member = new ProjectAccessGuard(reflector(['project:contribute']) as never, asRole('MEMBER') as never);
+    await expect(member.canActivate(contextFor({ user: { sub: 'A' }, orgMembership: { role: 'MEMBER' }, params: { organizationId: 'orgA', projectId: 'p1' } }))).resolves.toBe(true);
+    const viewer = new ProjectAccessGuard(reflector(['project:contribute']) as never, asRole('VIEWER') as never);
+    await expect(viewer.canActivate(contextFor({ user: { sub: 'A' }, orgMembership: { role: 'MEMBER' }, params: { organizationId: 'orgA', projectId: 'p1' } }))).rejects.toBeInstanceOf(ForbiddenException);
+  });
 });
