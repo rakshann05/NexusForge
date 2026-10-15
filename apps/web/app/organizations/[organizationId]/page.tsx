@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Shell } from '../../../components/shell';
 import { useAuth } from '../../../lib/auth-context';
 import { ApiError } from '../../../lib/api';
+import Link from 'next/link';
 import {
   addMember,
   canManageMembers,
@@ -18,6 +19,7 @@ import {
   removeMember,
   updateOrganization,
 } from '../../../lib/organizations';
+import { listProjects, Project } from '../../../lib/projects';
 
 const ASSIGNABLE: OrgRole[] = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'];
 
@@ -33,6 +35,7 @@ export default function OrganizationDetail() {
 
   const [org, setOrg] = useState<Organization | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -57,7 +60,9 @@ export default function OrganizationDetail() {
       setOrg(loaded);
       setName(loaded.name);
       setDescription(loaded.description ?? '');
-      setMembers(await listMembers(organizationId));
+      const [memberList, projectList] = await Promise.all([listMembers(organizationId), listProjects(organizationId)]);
+      setMembers(memberList);
+      setProjects(projectList);
       setState('ready');
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load organization.');
@@ -198,6 +203,35 @@ export default function OrganizationDetail() {
           {error}
         </div>
       )}
+
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="section-row">
+          <div>
+            <h2>Projects</h2>
+            <p className="muted">Work organized inside this organization.</p>
+          </div>
+          <Link className="secondary" href={`/organizations/${organizationId}/projects`}>
+            {canManageMembers(org.role) ? 'Manage projects' : 'View projects'}
+          </Link>
+        </div>
+        {projects.length === 0 && <p className="muted">No projects yet.</p>}
+        {projects.slice(0, 5).map((p) => (
+          <Link key={p.id} href={`/organizations/${organizationId}/projects/${p.id}`} className="member-row" style={{ textDecoration: 'none' }}>
+            <span className="org-avatar sm" style={{ background: '#e6f0ff', color: '#315dca' }}>
+              {p.name[0]?.toUpperCase()}
+            </span>
+            <div className="member-main">
+              <div className="member-name">{p.name}</div>
+              <div className="member-meta">
+                {p.memberCount} member{p.memberCount === 1 ? '' : 's'} · updated {new Date(p.updatedAt).toLocaleDateString()}
+              </div>
+            </div>
+            <span className="muted" aria-hidden="true">
+              →
+            </span>
+          </Link>
+        ))}
+      </section>
 
       <section className="grid content" style={{ marginTop: 16 }}>
         <article className="card">

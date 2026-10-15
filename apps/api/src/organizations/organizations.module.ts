@@ -10,6 +10,7 @@ export { OrganizationsService } from './organizations.service';
 @Module({
   controllers: [OrganizationsController],
   providers: [OrganizationsService, OrgAccessGuard],
-  exports: [OrganizationsService],
+  // OrgAccessGuard is exported so nested resources (projects) can chain it.
+  exports: [OrganizationsService, OrgAccessGuard],
 })
 export class OrganizationsModule {}

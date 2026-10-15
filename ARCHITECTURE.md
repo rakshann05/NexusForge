@@ -130,3 +130,49 @@ managing members requires `organization:manage_members`; a member may remove onl
 `/organizations` (+`/organizations/[organizationId]`) pages provide create / view / update /
 member-management UI. The active organization is the URL segment (no global store). Management
 controls are shown per the caller's role for UX only — the backend re-checks every request.
+
+## Projects & Project Membership (v0.5.0)
+
+Projects live inside organizations, forming the hierarchy
+`User → Organization → Organization RBAC → Project → Project Membership`. A project
+belongs to exactly one organization (`Project.organizationId`, cascade), and project
+access never bypasses organization isolation.
+
+**Authorization flow:**
+
+```
+JwtAuthGuard -> OrgAccessGuard (org membership + organization:read)
+             -> ProjectAccessGuard (project∈org + effective role) -> service (invariants)
+```
+
+`ProjectAccessGuard` (`projects/project-access.ts`) loads the project by **both**
+`id` and `organizationId` — a project from another org (or a swapped id) is a `404`,
+so `projectId` is never trusted alone. It resolves the caller's `ProjectMember` and
+computes an **effective project-admin**: an org OWNER/ADMIN has full authority over
+every project in their org, OR the caller is an explicit project `ADMIN`.
+
+| Permission | Who |
+| --- | --- |
+| project:read | any organization member (projects are org-visible) |
+| project:update / :delete / :manage_members | effective project-admin (org OWNER/ADMIN or project ADMIN) |
+
+Creating a project is an organization-management action: only org OWNER/ADMIN may create
+one, and the creator becomes the project's first `ADMIN`.
+
+**Invariants** (`projects/projects.service.ts`): a project member **must** already be a
+member of the parent organization (otherwise `400`); duplicate memberships are rejected by
+the `@@unique([userId, projectId])` constraint and an app-level `409`; a plain member may
+remove only themselves (leave); deletion is a **soft-delete** (`archivedAt`) that preserves
+data, and archived projects are excluded from listings. Audit events: `project.created`,
+`project.updated`, `project.archived`, `project.member_added`, `project.member_role_changed`,
+`project.member_removed`. Member payloads expose only safe user fields.
+
+**Endpoints** (all under `JwtAuthGuard` + `OrgAccessGuard`; `:projectId` routes also under
+`ProjectAccessGuard`): `GET/POST /organizations/:organizationId/projects`,
+`GET/PATCH/DELETE /organizations/:organizationId/projects/:projectId`,
+`GET/POST .../members`, `PATCH .../members/:userId/role`, `DELETE .../members/:userId`.
+
+**Frontend.** `lib/projects.ts` wraps the endpoints; the organization page lists real
+projects, `/organizations/:id/projects` provides list + create, and
+`/organizations/:id/projects/:projectId` shows details, members, role management, archive,
+and a "Tasks — coming in the next milestone" placeholder. Controls are role-gated for UX only.

@@ -2,12 +2,12 @@
 
 NexusForge is a self-hostable collaborative workspace for software teams. It brings projects, Kanban work, team knowledge, chat, and optional AI assistance into a single product without making a hosted AI service a runtime requirement.
 
-> **Status:** Organizations & RBAC (v0.4.0). NexusForge is now a multi-tenant
-> workspace: users create organizations, switch between them, view/update details,
-> and manage members with organization-scoped role-based access control (OWNER /
-> ADMIN / MEMBER / VIEWER), enforced server-side with strict tenant isolation and
-> audit logging. Builds on v0.3.2 (frontend↔backend auth) and v0.3.1 (migrations,
-> seed, env validation, refresh-token hardening, CI with PostgreSQL). See
+> **Status:** Projects & Project Membership (v0.5.0). Organizations now contain
+> **projects** with their own membership and roles. Project access is enforced
+> server-side and nested under organization isolation (`User → Organization →
+> Project → Project Membership`): a project is loaded by both its id and its
+> organization id, so swapping ids returns 404. Builds on v0.4.x (Organizations &
+> RBAC, auth-response hardening) and v0.3.x (auth integration, foundation). See
 > [docs/PROGRESS_STATUS.txt](docs/PROGRESS_STATUS.txt) for scope.
 
 ## Stack
@@ -98,6 +98,28 @@ disclosed), an organization always keeps at least one owner, and only owners can
 owner role. Member invites use an existing user's email/username (no email subsystem in this
 milestone). The frontend adds an org switcher and organization/member pages; the UI hides
 controls by role for convenience only. See [ARCHITECTURE.md](ARCHITECTURE.md) for the model.
+
+## Projects
+
+Projects live inside organizations (`User → Organization → Project → Project Membership`).
+Every project belongs to exactly one organization, and a project member must already be an
+organization member.
+
+| Method | Path | Required authorization |
+| --- | --- | --- |
+| GET | `/organizations/:organizationId/projects` | org member |
+| POST | `/organizations/:organizationId/projects` | org OWNER/ADMIN (creator becomes project ADMIN) |
+| GET | `/organizations/:organizationId/projects/:projectId` | org member (project must belong to org) |
+| PATCH | `/organizations/:organizationId/projects/:projectId` | project admin (org OWNER/ADMIN or project ADMIN) |
+| DELETE | `/organizations/:organizationId/projects/:projectId` | project admin (soft-delete / archive) |
+| GET | `.../:projectId/members` | org member |
+| POST | `.../:projectId/members` | project admin (target must be an org member) |
+| PATCH | `.../:projectId/members/:userId/role` | project admin |
+| DELETE | `.../:projectId/members/:userId` | project admin (or self-leave) |
+
+Authorization is enforced server-side: a project is loaded by **both** its id and
+organization id (swapped/foreign ids → 404), deletion is a soft-delete that preserves data,
+and the UI hides controls by role for convenience only. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Frontend authentication — limitations / future work
 

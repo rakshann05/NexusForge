@@ -1,11 +1,33 @@
 NEXUSFORGE PROJECT STATUS
 =========================
-Version: 0.4.1 (Authentication Response Security Cleanup)
-Last updated: 2026-09-23
+Version: 0.5.0 (Projects & Project Membership)
+Last updated: 2026-10-15
 
 MILESTONE STATUS
+- v0.5.0 — Projects & Project Membership — COMPLETE
 - v0.4.1 — Authentication Response Security Cleanup — COMPLETE
 - v0.4.0 — Organizations & RBAC — COMPLETE
+
+v0.5.0 CHANGES
+- Schema (migration add_project_archive_and_member_indexes, additive/data-preserving):
+  Project.archivedAt (soft-delete), ProjectMember.createdAt (joined date), @@index([projectId]).
+- Project-scoped authorization (apps/api/src/projects/project-access.ts): ProjectAccessGuard
+  chains after OrgAccessGuard, loads the project by BOTH id and organizationId (404 on
+  mismatch/foreign id -> isolation + ID-swap protection), resolves ProjectMember, and computes
+  effective project-admin (org OWNER/ADMIN or project ADMIN). project:read = any org member;
+  project:update/delete/manage_members = effective admin. Reuses JWT auth + audit, no new auth system.
+- Projects API (projects.controller.ts / projects.service.ts): list/create/get/update/archive,
+  members list/add/change-role/remove. Create requires org OWNER/ADMIN; creator becomes project
+  ADMIN; project key auto-generated (unique per org). Safe field selection only (no passwordHash).
+- Invariants: project member must belong to the parent organization (400 otherwise); duplicate
+  membership 409; members may self-leave; soft-delete via archivedAt (archived excluded from lists).
+  Audit: project.created/updated/archived/member_added/member_role_changed/member_removed.
+- Frontend: lib/projects.ts wrappers; organization page lists real projects;
+  /organizations/[id]/projects (list + create) and /organizations/[id]/projects/[projectId]
+  (details, members, role change, add/remove, archive, Tasks placeholder). Role-gated controls (UX only).
+- Tests: 15 backend project tests (guard incl. cross-tenant/ID-swap + service invariants),
+  9 frontend wrapper/helper tests. Suite: 90 tests (53 API + 37 web). Live E2E verified
+  cross-tenant 404s, ID-swap 404, RBAC 403s, org-membership invariant, archive, no leaks.
 
 v0.4.1 CHANGES
 - Fixed passwordHash exposure in register/login/refresh responses: the publicUser
@@ -105,10 +127,10 @@ v0.3.0 DONE
 - Completed final authentication security review: revoked sessions invalidate access tokens immediately, current database roles are checked by RBAC guards, and login/refresh/session events are audited.
 
 IN PROGRESS
-- None. v0.4.1 is complete and validated. No implementation work is active pending the next approved milestone.
+- None. v0.5.0 is complete and validated. No implementation work is active pending the next approved milestone.
 
 CURRENT MODULE
-- Authentication Response Security Cleanup (v0.4.1), finalized and validated.
+- Projects & Project Membership (v0.5.0), finalized and validated.
 
 NEXT
 - Projects module scoped to organizations (org-role authorization applied to project routes).
@@ -136,6 +158,7 @@ TIMELINE
 - 2026-09-02: v0.3.2 frontend/backend authentication integration completed.
 - 2026-09-23: v0.4.0 organizations and RBAC completed.
 - 2026-09-23: v0.4.1 authentication response security cleanup completed.
+- 2026-10-15: v0.5.0 projects and project membership completed.
 
 REMAINING WORK
 - Enforce organization permission policies and member invitations; add mail-backed password reset.
